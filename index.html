@@ -87,6 +87,15 @@ footer{padding:60px 20px;text-align:center;color:#9f8c97}
 </div>
 </section>
 </section>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Para Meu Amor ❤️</title>
+  <!-- Link do Supabase corrigido -->
+  <script src="https://jsdelivr.net"></script>
+</head>
+<body>
 
 <section class="center">
   <div class="note">
@@ -100,23 +109,9 @@ footer{padding:60px 20px;text-align:center;color:#9f8c97}
   </div>
 </section>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAv9r3BPUOlfMk4hLELDgEf1XW3hwDQENg",
-    authDomain: "flavio-e-jenifer.firebaseapp.com",
-    projectId: "flavio-e-jenifer",
-    storageBucket: "flavio-e-jenifer.firebasestorage.app",
-    messagingSenderId: "149518142587",
-    appId: "1:149518142587:web:b6a4473a7870d0221426de"
-  };
-
-  const app = initializeApp(firebaseConfig);
-</script>
-
 <section class="center">
 </section>
+
 <section class="center">
   <div class="eyebrow">Nossas lembranças</div>
   <h2>Nossa galeria ❤️</h2><br><br>
@@ -133,96 +128,104 @@ footer{padding:60px 20px;text-align:center;color:#9f8c97}
   <div id="galeria" class="gallery-grid"></div>
 </section>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-  import {
-    getStorage,
-    ref,
-    uploadBytes,
-    getDownloadURL,
-    listAll
-  } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-storage.js";
+<!-- Lógica do Supabase para controlar as fotos -->
+<script>
+  // 1. SUBSTITUA COM OS DADOS DO SEU PAINEL (Fica em Settings > API no Supabase)
+  const SUPABASE_URL = "https://yvraksyoudutnbrvnetj.supabase.co/rest/v1/";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2cmFrc3lvdWR1dG5icnZuZXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5OTg1NTcsImV4cCI6MjEwMjU3NDU1N30.tsMp-si8UyYXcynx2QFXN0kcomXB0lt4kCRW_VYBrqs";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAv9r3BPUOlfMk4hLELDgEf1XW3hwDQENg",
-    authDomain: "flavio-e-jenifer.firebaseapp.com",
-    projectId: "flavio-e-jenifer",
-    storageBucket: "flavio-e-jenifer.firebasestorage.app",
-    messagingSenderId: "149518142587",
-    appId: "1:149518142587:web:b6a4473a7870d0221426de"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const storage = getStorage(app);
+  // Inicializa o cliente do Supabase
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const input = document.getElementById("inputFoto");
   const galeria = document.getElementById("galeria");
   const status = document.getElementById("statusFoto");
 
+  // Função para listar todas as fotos guardadas na nuvem do Supabase
   async function carregarFotos() {
-    const pasta = ref(storage, "galeria");
-    const fotos = await listAll(pasta);
+    try {
+      // Lista todos os arquivos da pasta 'galeria'
+      const { data, error } = await supabase.storage.from('galeria').list('', {
+        limit: 100,
+        sortBy: { column: 'name', order: 'desc' }
+      });
 
-    galeria.innerHTML = "";
+      if (error) throw error;
 
-    for (const foto of fotos.items) {
-      const url = await getDownloadURL(foto);
+      galeria.innerHTML = "";
 
-      galeria.innerHTML += `
-        <div class="photo">
-          <img src="${url}" alt="Nossa lembrança">
-        </div>
-      `;
+      // Gera a URL pública para cada foto encontrada e adiciona na tela
+      for (const arquivo of data) {
+        // Ignora arquivos automáticos do sistema caso existam (.emptyFolderPlaceholder)
+        if (arquivo.name.startsWith('.')) continue;
+
+        const { data: urlData } = supabase.storage.from('galeria').getPublicUrl(arquivo.name);
+        
+        galeria.innerHTML += `
+          <div class="photo">
+            <img src="${urlData.publicUrl}" alt="Nossa lembrança">
+          </div>
+        `;
+      }
+    } catch (erro) {
+      console.error("Erro ao carregar:", erro);
     }
   }
 
+  // Evento disparado ao selecionar fotos no botão do site
   input.addEventListener("change", async () => {
     status.textContent = "Enviando foto... ❤️";
 
     try {
       for (const arquivo of input.files) {
-        const nome = Date.now() + "-" + arquivo.name;
-        const foto = ref(storage, "galeria/" + nome);
+        // Cria um nome único para o arquivo usando a data atual para não sobrescrever
+        const nomeUnico = Date.now() + "-" + arquivo.name;
 
-        await uploadBytes(foto, arquivo);
+        // Faz o upload do arquivo para o bucket 'galeria'
+        const { error } = await supabase.storage
+          .from('galeria')
+          .upload(nomeUnico, arquivo);
+
+        if (error) throw error;
       }
 
       status.textContent = "Foto adicionada! ❤️";
-      await carregarFotos();
+      await carregarFotos(); // Recarrega a galeria atualizada
 
     } catch (erro) {
-      console.error(erro);
+      console.error("Erro no envio:", erro);
       status.textContent = "Deu um erro ao enviar a foto.";
     }
 
     input.value = "";
   });
 
+  // Carrega as fotos assim que a página abre
   carregarFotos();
-
-
-
 </script>
 
+<!-- Player de Música -->
 <p style="text-align: center;">
 <audio preload="auto" controls autoplay >
     <source src="audios/Goo Goo Dolls - Iris (1).mp3" type="audio/mpeg">
-
 </audio></p>
 
 <footer>Flávio &amp; Jenifer • feito com carinho ❤️</footer>
     
+<!-- Contador de Tempo -->
 <script>
 const start = new Date("2026-07-03T00:00:00");
 function update(){
   const diff=Math.max(0,Date.now()-start.getTime());
   const s=Math.floor(diff/1000);
-  document.getElementById("days").textContent=Math.floor(s/86400);
-  document.getElementById("hours").textContent=Math.floor(s%86400/3600);
-  document.getElementById("mins").textContent=Math.floor(s%3600/60);
-  document.getElementById("secs").textContent=s%60;
+  // Se o seu HTML tiver os elementos com esses IDs (days, hours, mins, secs), eles atualizarão aqui
+  if(document.getElementById("days")) document.getElementById("days").textContent=Math.floor(s/86400);
+  if(document.getElementById("hours")) document.getElementById("hours").textContent=Math.floor(s%86400/3600);
+  if(document.getElementById("mins")) document.getElementById("mins").textContent=Math.floor(s%3600/60);
+  if(document.getElementById("secs")) document.getElementById("secs").textContent=s%60;
 }
 update();setInterval(update,1000);
 </script>
+
 </body>
 </html>
